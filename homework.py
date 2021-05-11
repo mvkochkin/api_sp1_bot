@@ -13,6 +13,7 @@ load_dotenv()
 PRAKTIKUM_TOKEN = os.getenv('PRAKTIKUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+API_URL = 'https://praktikum.yandex.ru/api/user_api/homework_statuse2s/'
 logging.basicConfig(
     format='%(asctime)s, %(levelname)s, %(name)s, %(message)s',
     filename='homework.log',
@@ -27,9 +28,26 @@ handler = RotatingFileHandler(
 logger.addHandler(handler)
 
 
+class APIResponseDataError(Exception):
+    '''Исключение, вызывающееся при некоректных
+       данных, содержащихся в ответе от API
+    '''
+
+    def __init__(self, message='В ответе содержатся некорректные данные'):
+        self.message = message
+        super().__init__(self.message)
+
+
 def parse_homework_status(homework):
-    homework_status = homework.get('status')
-    homework_name = homework.get('homework_name')
+    correct_status_list = ['rejected', 'approved', 'reviewing']
+    try:
+        homework_status = homework.get('status')
+        homework_name = homework.get('homework_name')
+        if homework_name == '' or homework_status not in correct_status_list:
+            raise APIResponseDataError
+    except Exception as e:
+        error_msg = f'Возникла проблема с ответом от API. Ошибка: {e}'
+        return error_msg
     if homework_status == 'rejected':
         verdict = 'К сожалению в работе нашлись ошибки.'
     elif homework_status == 'reviewing':
@@ -45,10 +63,16 @@ def parse_homework_status(homework):
 def get_homework_statuses(current_timestamp):
     data = {'from_date': current_timestamp}
     headers = {'Authorization': f'OAuth {PRAKTIKUM_TOKEN}'}
-    homework_statuses = requests.get(
-        'https://praktikum.yandex.ru/api/user_api/homework_statuses/',
-        params=data,
-        headers=headers)
+    try:
+        homework_statuses = requests.get(
+            API_URL,
+            params=data,
+            headers=headers)
+    except Exception as e:
+        raise e
+        # error_msg = f'Возникла проблема с доступом к API. Ошибка: {e}'
+        # logger.error(error_msg)
+        
     return homework_statuses.json()
 
 
@@ -66,9 +90,10 @@ def main():
     while True:
         try:
             new_homework = get_homework_statuses(current_timestamp)
-            if new_homework.get('homeworks'):
+            homework_data = new_homework.get('homeworks')
+            if homework_data:
                 send_message(
-                    parse_homework_status(new_homework.get('homeworks')[0]),
+                    parse_homework_status(homework_data[0]),
                     bot
                 )
             current_timestamp = new_homework.get(
