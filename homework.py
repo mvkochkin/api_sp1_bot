@@ -13,7 +13,7 @@ load_dotenv()
 PRAKTIKUM_TOKEN = os.getenv('PRAKTIKUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
-API_URL = 'https://praktikum.yandex.ru/api/user_api/homework_statuse2s/'
+API_URL = 'https://praktikum.yandex.ru/api/user_api/homework_statuses/'
 logging.basicConfig(
     format='%(asctime)s, %(levelname)s, %(name)s, %(message)s',
     filename='homework.log',
@@ -30,7 +30,7 @@ logger.addHandler(handler)
 
 class APIResponseDataError(Exception):
     '''Исключение, вызывающееся при некоректных
-       данных, содержащихся в ответе от API
+    данных, содержащихся в ответе от API
     '''
 
     def __init__(self, message='В ответе содержатся некорректные данные'):
@@ -40,14 +40,10 @@ class APIResponseDataError(Exception):
 
 def parse_homework_status(homework):
     correct_status_list = ['rejected', 'approved', 'reviewing']
-    try:
-        homework_status = homework.get('status')
-        homework_name = homework.get('homework_name')
-        if homework_name == '' or homework_status not in correct_status_list:
-            raise APIResponseDataError
-    except Exception as e:
-        error_msg = f'Возникла проблема с ответом от API. Ошибка: {e}'
-        return error_msg
+    homework_status = homework.get('status')
+    homework_name = homework.get('homework_name')
+    if homework_name == '' or homework_status not in correct_status_list:
+        raise APIResponseDataError
     if homework_status == 'rejected':
         verdict = 'К сожалению в работе нашлись ошибки.'
     elif homework_status == 'reviewing':
@@ -68,12 +64,10 @@ def get_homework_statuses(current_timestamp):
             API_URL,
             params=data,
             headers=headers)
+        return homework_statuses.json()
     except Exception as e:
-        raise e
-        # error_msg = f'Возникла проблема с доступом к API. Ошибка: {e}'
-        # logger.error(error_msg)
-        
-    return homework_statuses.json()
+        error_msg = f'Возникла проблема с доступом к API. Ошибка: {e}'
+        logger.error(error_msg)
 
 
 def send_message(message, bot_client):
