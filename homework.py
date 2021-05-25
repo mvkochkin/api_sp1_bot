@@ -80,6 +80,10 @@ def main():
     bot = Bot(token=TELEGRAM_TOKEN)
     logger.debug('Бот запущен')
     current_timestamp = int(time.time())
+    time_for_error_renew = int(time.time())
+    err_tmp = str()
+
+    send_message('Бот запущен', bot)
 
     while True:
         try:
@@ -94,13 +98,19 @@ def main():
                 'current_date',
                 current_timestamp
             )
-            time.sleep(300)
+            time.sleep(600)
 
         except Exception as e:
             error_msg = f'Бот столкнулся с ошибкой: {e}'
             logger.error(error_msg)
-            send_message(error_msg, bot)
-            time.sleep(5)
+            if error_msg != err_tmp:
+                err_tmp = error_msg
+                send_message(error_msg, bot)
+            time.sleep(60)
+
+        if int(time.time()) - 3600 > time_for_error_renew:
+            err_tmp = str()
+            time_for_error_renew = int(time.time())
 
 
 if __name__ == '__main__':
